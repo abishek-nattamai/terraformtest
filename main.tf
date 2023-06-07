@@ -153,6 +153,13 @@ resource "aws_s3_bucket" "storage_bucket" {
   bucket = "static-s3-storage-bucket-an-425662023"
 }
 
+//S3 Object
+resource "aws_s3_bucket_object" "indexhtml"{
+    bucket = aws_s3_bucket.storage_bucket.id
+    key = "indexhtml"
+    source = "index.html"
+}
+
 //IAM role
 resource "aws_iam_role" "ec2_s3" {
   name = "ec2-s3"
