@@ -154,7 +154,7 @@ resource "aws_s3_bucket" "storage_bucket" {
 }
 
 //S3 Object
-resource "aws_s3_bucket_object" "indexhtml"{
+resource "aws_s3_object" "indexhtml"{
     bucket = aws_s3_bucket.storage_bucket.id
     key = "indexhtml"
     source = "index.html"
