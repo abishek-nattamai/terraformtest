@@ -39,8 +39,9 @@ resource "aws_internet_gateway" "igw" {
 
 //Elastic IP
 resource "aws_eip" "elasticip" {
-  instance = aws_instance.linux_instance.id
+  domain = "vpc"
 }
+
 
 //nat gateway
 resource "aws_nat_gateway" "ngw" {
@@ -77,7 +78,7 @@ resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.my_vpc.id
 
   route {
-    cidr_block = "10.0.0.0/16"
+    cidr_block = "0.0.0.0/0"
     gateway_id = aws_nat_gateway.ngw.id
   }
 
@@ -115,11 +116,69 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
+}
+
+  //security group
+resource "aws_security_group" "allow_connection" {
+  name        = "allow_connection"
+  description = "allow_connection"
+  vpc_id      = aws_vpc.my_vpc.id
+
+//ssh
+  ingress {
+    description      = "SSH"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+// HTTP
+  ingress {
+    description      = "HTTP"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+//HTTPS
+  ingress {
+    description      = "HTTPS"
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
 
   tags = {
-    Name = "allow_ssh"
+    Name = "allow_connection"
   }
 }
+
+//linux public ec2 instance
+resource "aws_instance" "public_linux_instance" {
+  ami                    = "ami-0715c1897453cabd1"
+  instance_type          = "t2.micro"
+  associate_public_ip_address = true
+  key_name               = "publiclinux"
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.allow_connection.id]
+
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.id
+}
+
 
 //linux ec2 instance
 resource "aws_instance" "linux_instance" {
@@ -135,7 +194,7 @@ resource "aws_instance" "linux_instance" {
 //EBS volume
 resource "aws_ebs_volume" "ebs-vol" {
   size              = 1
-  availability_zone = "us-east-1"
+  availability_zone = "us-east-1a"
   tags = {
     Name = "ebs-vol"
   }
@@ -154,30 +213,23 @@ resource "aws_s3_bucket" "storage_bucket" {
 }
 
 //S3 Object
-resource "aws_s3_object" "indexhtml"{
-    bucket = aws_s3_bucket.storage_bucket.id
-    key = "indexhtml"
-    source = "index.html"
+resource "aws_s3_object" "indexhtml" {
+  bucket = aws_s3_bucket.storage_bucket.id
+  key    = "index.html"
+  source = "index.html"
 }
 
 //IAM role
 resource "aws_iam_role" "ec2_s3" {
-  name = "ec2-s3"
+  name = "ec2_s3"
 
   assume_role_policy = jsonencode({
-    Version = "2023-06-06"
+    Version = "2012-10-17"
     Statement = [
       {
         Action = "sts:AssumeRole"
         Effect = "Allow"
-        Action = [
-          "*"
-        ],
-        Resource = [
-          "arn:aws:s3:::*/*",
-          "arn:aws:s3:::static-s3-storage-bucket-an-425662023"
-        ]
-        Sid = ""
+        Sid    = ""
         Principal = {
           Service = "ec2.amazonaws.com"
         }
